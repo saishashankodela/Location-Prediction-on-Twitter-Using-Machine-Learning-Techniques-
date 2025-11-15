@@ -1,0 +1,172 @@
+from tkinter import messagebox
+from tkinter import *
+from tkinter import simpledialog
+import tkinter
+import matplotlib.pyplot as plt
+import numpy as np
+from tkinter import ttk
+from tkinter import filedialog
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from string import punctuation
+from nltk.corpus import stopwords
+import nltk
+from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelEncoder
+import os
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import accuracy_score
+
+main = Tk()
+main.title("Location prediction on Twitter using Machine Learning")
+main.geometry("1300x1200")
+
+global filename
+global X, Y
+global X_train, X_test, y_train, y_test
+global tfidf_vectorizer
+accuracy = []
+
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+textdata = []
+labels = []
+global classifier
+
+location_name = [
+    'Arizona', 'Brazil', 'Brooklyn', 'Chennai', 'Florida', 'India', 'Indonesia',
+    'Kerala', 'Kirkwall', 'Pune', 'Sweden', 'United States', 'Mexico', 'UK'
+]
+
+def cleanPost(doc):
+    tokens = doc.split()
+    table = str.maketrans('', '', punctuation)
+    tokens = [w.translate(table) for w in tokens]
+    tokens = [word for word in tokens if word.isalpha()]
+    tokens = [w for w in tokens if w not in stop_words]
+    tokens = [w for w in tokens if len(w) > 1]
+    tokens = [lemmatizer.lemmatize(token) for token in tokens]
+    tokens = ' '.join(tokens)
+    return tokens
+
+def uploadDataset():
+    global filename
+    text.delete('1.0', END)
+    le = LabelEncoder()
+
+    filename = filedialog.askopenfilename(initialdir="Dataset")
+
+    textdata.clear()
+    labels.clear()
+
+    dataset = pd.read_csv(filename)
+    dataset['location'] = le.fit_transform(dataset['location'])
+
+    for i in range(len(dataset)):
+        msg = dataset.loc[i, 'text']
+        label = dataset.loc[i, 'location']
+        msg = str(msg).strip().lower()
+        labels.append(label)
+        clean = cleanPost(msg)
+        textdata.append(clean)
+        text.insert(END, clean + "\n")
+
+def preprocess():
+    text.delete('1.0', END)
+    global X, Y
+    global tfidf_vectorizer
+    global X_train, X_test, y_train, y_test
+
+    tfidf_vectorizer = TfidfVectorizer(stop_words="english",
+                                       use_idf=True,
+                                       ngram_range=(1, 2),
+                                       smooth_idf=True)
+
+    tfidf = tfidf_vectorizer.fit_transform(textdata).toarray()
+
+    X = tfidf
+    Y = np.asarray(labels)
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, Y, test_size=0.2, random_state=42
+    )
+
+    text.insert(END, "\nTotal Tweets: " + str(len(X)) + "\n")
+    text.insert(END, "Training Samples: " + str(len(X_train)) + "\n")
+    text.insert(END, "Testing Samples: " + str(len(X_test)) + "\n")
+
+def runML():
+    global classifier
+    global accuracy
+    accuracy.clear()
+    text.delete('1.0', END)
+
+    cls = GaussianNB()
+    cls.fit(X_train, y_train)
+    pred = cls.predict(X_test)
+    acc = accuracy_score(y_test, pred) * 100
+    accuracy.append(acc)
+    text.insert(END, "Naive Bayes Accuracy: " + str(acc) + "\n\n")
+
+    cls = SVC(kernel='linear')
+    cls.fit(X_train, y_train)
+    pred = cls.predict(X_test)
+    acc = accuracy_score(y_test, pred) * 100
+    accuracy.append(acc)
+    text.insert(END, "SVM Accuracy: " + str(acc) + "\n\n")
+
+    cls = DecisionTreeClassifier()
+    cls.fit(X_train, y_train)
+    pred = cls.predict(X_test)
+    acc = accuracy_score(y_test, pred) * 100
+    accuracy.append(acc)
+    text.insert(END, "Decision Tree Accuracy: " + str(acc) + "\n\n")
+
+    classifier = cls
+
+def graph():
+    height = accuracy
+    bars = ('Naive Bayes', 'SVM', 'Decision Tree')
+    y_pos = np.arange(len(bars))
+
+    plt.bar(y_pos, height)
+    plt.xticks(y_pos, bars)
+    plt.title('Accuracy Comparison Graph')
+    plt.show()
+
+def predict():
+    global classifier
+    testfile = filedialog.askopenfilename(initialdir="Dataset")
+    testData = pd.read_csv(testfile)
+
+    text.delete('1.0', END)
+
+    for i in range(len(testData)):
+        msg = str(testData.loc[i, 'text']).lower().strip()
+        clean = cleanPost(msg)
+        testVec = tfidf_vectorizer.transform([clean]).toarray()
+        pred = classifier.predict(testVec)[0]
+        text.insert(END, msg + " === LOCATION PREDICTED AS: " +
+                    location_name[pred] + "\n\n")
+
+font = ('times', 15, 'bold')
+title = Label(main, text='Location Prediction on Twitter Using ML')
+title.config(bg='gold2', fg='black', font=font, height=2, width=80)
+title.place(x=0, y=5)
+
+ff = ('times', 12, 'bold')
+
+Button(main, text="Upload Tweets Dataset", command=uploadDataset, font=ff).place(x=20, y=100)
+Button(main, text="Preprocess Dataset", command=preprocess, font=ff).place(x=20, y=150)
+Button(main, text="Run Machine Learning Algorithm", command=runML, font=ff).place(x=20, y=200)
+Button(main, text="Accuracy Comparison Graph", command=graph, font=ff).place(x=20, y=250)
+Button(main, text="Predict Location from Test Tweets", command=predict, font=ff).place(x=20, y=300)
+
+text = Text(main, height=30, width=120, font=('times', 12))
+text.place(x=330, y=100)
+
+main.config(bg='lightblue')
+main.mainloop()
