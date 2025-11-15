@@ -1,0 +1,2 @@
+# Location-Prediction-on-Twitter-Using-Machine-Learning-Techniques-
+Developed an ML system that predicts a user’s location from tweets without relying on check-ins. It integrates NLP text analysis, temporal activity patterns, metadata, and weak geotag cues to infer locations. Built a multi-modal pipeline enabling real-time processing and improved prediction accuracy across diverse user profiles.
